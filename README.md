@@ -1,11 +1,11 @@
 # Go Repository Template
 
 [![Keep a Changelog](https://img.shields.io/badge/changelog-Keep%20a%20Changelog-%23E05735)](CHANGELOG.md)
-[![Go Reference](https://pkg.go.dev/badge/github.com/golang-templates/seed.svg)](https://pkg.go.dev/github.com/golang-templates/seed)
-[![go.mod](https://img.shields.io/github/go-mod/go-version/golang-templates/seed)](go.mod)
-[![LICENSE](https://img.shields.io/github/license/golang-templates/seed)](LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/golang-templates/seed)](https://goreportcard.com/report/github.com/golang-templates/seed)
-[![Codecov](https://codecov.io/gh/golang-templates/seed/branch/main/graph/badge.svg)](https://codecov.io/gh/golang-templates/seed)
+[![Go Reference](https://pkg.go.dev/badge/github.com/fmotalleb/helios-dns.svg)](https://pkg.go.dev/github.com/fmotalleb/helios-dns)
+[![go.mod](https://img.shields.io/github/go-mod/go-version/fmotalleb/helios-dns)](go.mod)
+[![LICENSE](https://img.shields.io/github/license/fmotalleb/helios-dns)](LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/fmotalleb/helios-dns)](https://goreportcard.com/report/github.com/fmotalleb/helios-dns)
+[![Codecov](https://codecov.io/gh/fmotalleb/helios-dns/branch/main/graph/badge.svg)](https://codecov.io/gh/fmotalleb/helios-dns)
 
 ⭐ `Star` this repository if you find it valuable and worth maintaining.
 
@@ -43,7 +43,7 @@ It includes:
 1. Sign up on [Codecov](https://codecov.io/) and configure
    [Codecov GitHub Application](https://github.com/apps/codecov).
 2. Click the `Use this template` button (alt. clone or download this repository).
-3. Replace all occurrences of `golang-templates/seed` to `your_org/repo_name` in all files.
+3. Replace all occurrences of `fmotalleb/helios-dns` to `your_org/repo_name` in all files.
 4. Replace all occurrences of `seed` to `repo_name` in [Dockerfile](Dockerfile).
 5. Follow [these](https://docs.codecov.com/docs/adding-the-codecov-token#github-actions)
    instructions to add the `CODECOV_TOKEN` as a GitHub Actions secret.

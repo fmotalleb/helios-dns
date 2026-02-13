@@ -1,6 +1,6 @@
-module github.com/golang-templates/seed
+module github.com/fmotalleb/helios-dns
 
-go 1.25.5
+go 1.26.0
 
 tool (
 	github.com/client9/misspell/cmd/misspell
