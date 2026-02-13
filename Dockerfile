@@ -1,3 +1,3 @@
 FROM scratch
-COPY seed /
-ENTRYPOINT ["/seed"]
+COPY helios-dns /
+ENTRYPOINT ["/helios-dns"]
