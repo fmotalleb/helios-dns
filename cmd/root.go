@@ -128,7 +128,7 @@ func init() {
 	rootCmd.Flags().Int("port", 443, "port to test against")
 	rootCmd.Flags().Int("status", 0, "http status code expected from server, (zero means no http check)")
 
-	rootCmd.Flags().Int("min-count", 1, "minimum IP samples from each CIDR")
+	rootCmd.Flags().Int("min-count", 0, "minimum IP samples from each CIDR")
 	rootCmd.Flags().Int("max-count", 8, "maximum IP samples from each CIDR")
 	rootCmd.Flags().Float64("chance", 0.05, "chance of picking each IP sample from CIDR")
 

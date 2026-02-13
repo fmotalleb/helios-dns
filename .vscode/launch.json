@@ -12,7 +12,7 @@
             "program": "${workspaceFolder}",
             "env": {},
             "args": [
-                "--config=config.yaml",
+                "--config=config.local.yaml",
                 "--listen=0.0.0.0:5958",
                 "-v"
             ]

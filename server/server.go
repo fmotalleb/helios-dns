@@ -23,16 +23,21 @@ func Serve(ctx context.Context, cfg config.Config) error {
 		logger: logger,
 		rwMux:  new(sync.RWMutex),
 		memory: make(map[string][]net.IP),
+		ttl:    uint32(cfg.UpdateInterval.Seconds()),
 	}
 	errCh := make(chan error, 2)
 	go func() {
-		errCh <- dnsServer.Serve(localCtx, cfg.Listen, handler)
+		if err := dnsServer.Serve(localCtx, cfg.Listen, handler); err != nil {
+			errCh <- err
+		}
 	}()
 	timer := time.NewTimer(cfg.UpdateInterval)
 	defer timer.Stop()
 	go func() {
 		for range timer.C {
-			errCh <- recordUpdater(localCtx, cfg, handler)
+			if err := recordUpdater(localCtx, cfg, handler); err != nil {
+				errCh <- err
+			}
 		}
 	}()
 	// TODO: fail-fast scenario, handle errors
@@ -134,6 +139,8 @@ type dnsHandler struct {
 	logger *zap.Logger
 	rwMux  *sync.RWMutex
 	memory map[string][]net.IP
+
+	ttl uint32
 }
 
 func (d *dnsHandler) UpdateRecords(key string, records []net.IP) {
@@ -184,7 +191,7 @@ func (d *dnsHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 				Rrtype: dns.TypeA,
 				Class:  dns.ClassINET,
 				// In seconds
-				Ttl: 300,
+				Ttl: d.ttl,
 			},
 			A: addr,
 		}
