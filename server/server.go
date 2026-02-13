@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -23,14 +24,24 @@ func Serve(ctx context.Context, cfg config.Config) error {
 		rwMux:  new(sync.RWMutex),
 		memory: make(map[string][]net.IP),
 	}
+	errCh := make(chan error, 2)
 	go func() {
-		dnsServer.Serve(localCtx, cfg.Listen, handler)
+		errCh <- dnsServer.Serve(localCtx, cfg.Listen, handler)
 	}()
+	timer := time.NewTimer(cfg.UpdateInterval)
+	defer timer.Stop()
 	go func() {
-		recordUpdater(localCtx, cfg, handler)
+		for range timer.C {
+			errCh <- recordUpdater(localCtx, cfg, handler)
+		}
 	}()
-	<-ctx.Done()
-	return nil
+	// TODO: fail-fast scenario, handle errors
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		return nil
+	}
 }
 
 func recordUpdater(ctx context.Context, cfg config.Config, h *dnsHandler) error {
