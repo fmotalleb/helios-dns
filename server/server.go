@@ -40,9 +40,12 @@ func recordUpdater(ctx context.Context, cfg config.Config, h *dnsHandler) error 
 		zap.Int("domains_count", len(cfg.Domains)),
 	)
 
-	for domain, v := range cfg.Domains {
+	for _, v := range cfg.Domains {
+		domain := v.Domain
+		sni := v.SNI
 		logger.Info("processing domain",
 			zap.String("domain", domain),
+			zap.String("sni", sni),
 			zap.Int("limit", v.Limit),
 		)
 
@@ -81,17 +84,20 @@ func recordUpdater(ctx context.Context, cfg config.Config, h *dnsHandler) error 
 				res := vm.ExecuteIP(ctx, ip)
 
 				if res.Success {
-					okIPs = append(okIPs, res.IP)
+					ipCopy := make(net.IP, len(ip))
+					copy(ipCopy, ip)
+					okIPs = append(okIPs, ipCopy)
 
 					logger.Debug("IP accepted",
 						zap.String("domain", domain),
-						zap.String("ip", res.IP.String()),
+						zap.String("ip", ipCopy.String()),
 						zap.Int("accepted_count", len(okIPs)),
 					)
 
 					if len(okIPs) == v.Limit {
 						break iters
 					}
+					break
 				} else {
 					logger.Debug("IP rejected",
 						zap.String("domain", domain),
@@ -166,7 +172,8 @@ func (d *dnsHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 				Name:   q.Name,
 				Rrtype: dns.TypeA,
 				Class:  dns.ClassINET,
-				Ttl:    10,
+				// In seconds
+				Ttl: 300,
 			},
 			A: addr,
 		}

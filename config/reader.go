@@ -24,13 +24,14 @@ func Parse(ctx context.Context, dst *Config, path string, args map[string]any) e
 			return fmt.Errorf("decode: %w", err)
 		}
 	}
+
+	defaulter.ApplyDefaults(dst, args)
 	for _, v := range dst.Domains {
+		defaulter.ApplyDefaults(v, args)
 		if len(v.CIDRs) == 0 {
 			v.CIDRs = getCIDRs(args)
 		}
 	}
-
-	defaulter.ApplyDefaults(dst, args)
 	return nil
 }
 
