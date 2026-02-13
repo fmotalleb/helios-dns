@@ -57,7 +57,7 @@ var (
 	}
 )
 
-// rootCmd represents the base command when called without any subcommands
+// rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:   "helios-dns",
 	Short: "A brief description of your application",
@@ -94,7 +94,7 @@ to quickly create a Cobra application.`,
 		if err != nil {
 			return err
 		}
-		reloader.WithOsSignal(ctx, func(ctx context.Context) error {
+		err = reloader.WithOsSignal(ctx, func(ctx context.Context) error {
 			var cfg config.Config
 			if err = config.Parse(ctx, &cfg, configFile, args); err != nil {
 				return err
@@ -103,7 +103,6 @@ to quickly create a Cobra application.`,
 		},
 			time.Second*15,
 		)
-
 		return err
 	},
 }
