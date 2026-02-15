@@ -26,6 +26,7 @@ type ScanConfig struct {
 	SNI        string   `mapstructure:"sni" default:"{{ .args.sni }}"`
 	Timeout    int      `mapstructure:"timeout" default:"{{ .args.timeout }}"`
 	Port       int      `mapstructure:"port" default:"{{ .args.port }}"`
+	Path       string   `mapstructure:"path" default:"{{ .args.path }}"`
 	StatusCode int      `mapstructure:"status_code" default:"{{ .args.status_code }}"`
 
 	SamplesMinimum int     `mapstructure:"sample_min" default:"{{ .args.sample_min }}"`
@@ -73,12 +74,12 @@ func (sc *ScanConfig) BuildVM() (*vm.VM, error) {
 	}
 	defaultProgram := `
 tls.connect port={{ .Port }} sni={{ .SNI }} timeout={{ .Timeout }}
-{{ if gt .StatusCode 0 -}} tls.http.get header.host={{ .SNI }} path=/ expect.status={{ .StatusCode }} {{- end -}}
+{{ if gt .StatusCode 0 -}} tls.http.get header.host={{ .SNI }} path={{ .Path }} expect.status={{ .StatusCode }} {{- end -}}
 `
 	if sc.HTTPOnly {
 		defaultProgram = `
 tcp.connect port={{ .Port }} timeout={{ .Timeout }}
-{{ if gt .StatusCode 0 -}} http.get port={{ .Port }} expect.status={{ .StatusCode }} headers.host={{ .SNI }} timeout={{ .Timeout }} {{- end -}}
+{{ if gt .StatusCode 0 -}} http.get port={{ .Port }} path={{ .Path }} expect.status={{ .StatusCode }} headers.host={{ .SNI }} timeout={{ .Timeout }} {{- end -}}
 `
 	}
 	programStr := cmp.Or(sc.Program, defaultProgram)

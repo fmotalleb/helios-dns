@@ -124,6 +124,7 @@ The `program` field is rendered as a template and can use fields such as:
 
 - `.Port`
 - `.SNI`
+- `.Path`
 - `.Timeout`
 - `.StatusCode`
 
@@ -132,12 +133,13 @@ Example:
 ```mithra
 # TCP scan
 tcp.connect port={{ .Port }} timeout={{ .Timeout }}
+
 # Http scan
-http.get port={{ .Port }} header.host={{ .SNI }} timeout={{ .Timeout }} path=/ expect.status={{ .StatusCode }}
+http.get port={{ .Port }} header.host={{ .SNI }} timeout={{ .Timeout }} path={{ .Path }} expect.status={{ .StatusCode }}
 
 # TLS (tls.connect is mandatory)
 tls.connect port={{ .Port }} sni={{ .SNI }} timeout={{ .Timeout }}
-{{ if gt .StatusCode 0 -}} tls.http.get header.host={{ .SNI }} path=/ expect.status={{ .StatusCode }} {{- end -}}
+{{ if gt .StatusCode 0 -}} tls.http.get header.host={{ .SNI }} path={{ .Path }} expect.status={{ .StatusCode }} {{- end -}}
 ```
 
 ## Build

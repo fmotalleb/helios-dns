@@ -134,6 +134,7 @@ func init() {
 	rootCmd.Flags().StringP("listen", "l", "127.0.0.1:5353", "listen address of dns server")
 	rootCmd.Flags().Duration("interval", defaultInterval, "update interval for records")
 	rootCmd.Flags().StringArray("cidr", cfIps, "CIDRs to test against")
+	rootCmd.Flags().String("path", "/", "path of http(s) test")
 	rootCmd.Flags().DurationP("timeout", "t", defaultTimeout, "timeout of execution for each IP")
 	rootCmd.Flags().String("sni", "", "sni address to check response against")
 	rootCmd.Flags().Int("port", defaultPort, "port to test against")
@@ -198,6 +199,9 @@ func buildArgsMap(cmd *cobra.Command) (map[string]any, error) {
 	}
 
 	if args["http_only"], err = cmd.Flags().GetBool("http-only"); err != nil {
+		return nil, err
+	}
+	if args["path"], err = cmd.Flags().GetString("path"); err != nil {
 		return nil, err
 	}
 
