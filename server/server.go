@@ -16,6 +16,7 @@ import (
 	dnsServer "github.com/fmotalleb/helios-dns/dns"
 )
 
+// Serve starts the DNS server and periodic record updater loop.
 func Serve(ctx context.Context, cfg config.Config) error {
 	localCtx, cancel := context.WithCancel(ctx)
 	defer cancel()

@@ -1,3 +1,4 @@
+// Package config defines runtime configuration structures and helpers.
 package config
 
 import (
@@ -11,12 +12,14 @@ import (
 	"github.com/fmotalleb/mithra/vm"
 )
 
+// Config represents application-level settings.
 type Config struct {
 	Listen         string        `mapstructure:"listen" default:"{{ .args.listen }}"`
 	UpdateInterval time.Duration `mapstructure:"interval" default:"{{ .args.interval }}"`
 	Domains        []*ScanConfig `mapstructure:"domains"`
 }
 
+// ScanConfig defines scan settings for a single domain.
 type ScanConfig struct {
 	Domain     string   `mapstructure:"domain"`
 	CIDRs      []string `mapstructure:"cidr"`
@@ -36,6 +39,7 @@ type ScanConfig struct {
 	vm *vm.VM
 }
 
+// ReadCIDRs parses CIDR strings into iterators.
 func (sc *ScanConfig) ReadCIDRs() ([]*cidr.Iterator, error) {
 	result := make([]*cidr.Iterator, len(sc.CIDRs))
 	var err error
@@ -48,6 +52,7 @@ func (sc *ScanConfig) ReadCIDRs() ([]*cidr.Iterator, error) {
 	return result, err
 }
 
+// ReadCIDRsSamples builds sampled IP sequences from configured CIDRs.
 func (sc *ScanConfig) ReadCIDRsSamples() ([]iter.Seq[net.IP], error) {
 	cidrs, err := sc.ReadCIDRs()
 	if err != nil {
@@ -60,6 +65,7 @@ func (sc *ScanConfig) ReadCIDRsSamples() ([]iter.Seq[net.IP], error) {
 	return samples, nil
 }
 
+// BuildVM creates and caches the execution VM for this scan configuration.
 func (sc *ScanConfig) BuildVM() (*vm.VM, error) {
 	if sc.vm != nil {
 		return sc.vm, nil

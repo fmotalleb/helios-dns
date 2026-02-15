@@ -1,3 +1,4 @@
+// Package cmd contains the CLI command definitions for helios-dns.
 /*
 Copyright © 2026 Motalleb Fallahnezhad
 
@@ -57,6 +58,15 @@ var (
 	}
 )
 
+const (
+	reloadDebounce        = 15 * time.Second
+	defaultInterval       = 10 * time.Minute
+	defaultTimeout        = 200 * time.Millisecond
+	defaultPort           = 443
+	defaultMaxSampleCount = 8
+	defaultSampleChance   = 0.05
+)
+
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:   "helios-dns",
@@ -101,7 +111,7 @@ to quickly create a Cobra application.`,
 			}
 			return server.Serve(ctx, cfg)
 		},
-			time.Second*15,
+			reloadDebounce,
 		)
 		return err
 	},
@@ -121,16 +131,16 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&debug, "verbose", "v", false, "enable debug logging")
 	rootCmd.Flags().StringP("config", "c", "", "config file, if config has a value set, argument for that value will be ignored")
 	rootCmd.Flags().StringP("listen", "l", "127.0.0.1:5353", "listen address of dns server")
-	rootCmd.Flags().Duration("interval", 10*time.Minute, "update interval for records")
+	rootCmd.Flags().Duration("interval", defaultInterval, "update interval for records")
 	rootCmd.Flags().StringArray("cidr", cfIps, "CIDRs to test against")
-	rootCmd.Flags().DurationP("timeout", "t", time.Millisecond*200, "timeout of execution for each IP")
+	rootCmd.Flags().DurationP("timeout", "t", defaultTimeout, "timeout of execution for each IP")
 	rootCmd.Flags().String("sni", "", "sni address to check response against")
-	rootCmd.Flags().Int("port", 443, "port to test against")
+	rootCmd.Flags().Int("port", defaultPort, "port to test against")
 	rootCmd.Flags().Int("status", 0, "http status code expected from server, (zero means no http check)")
 
 	rootCmd.Flags().Int("min-count", 0, "minimum IP samples from each CIDR")
-	rootCmd.Flags().Int("max-count", 8, "maximum IP samples from each CIDR")
-	rootCmd.Flags().Float64("chance", 0.05, "chance of picking each IP sample from CIDR")
+	rootCmd.Flags().Int("max-count", defaultMaxSampleCount, "maximum IP samples from each CIDR")
+	rootCmd.Flags().Float64("chance", defaultSampleChance, "chance of picking each IP sample from CIDR")
 
 	rootCmd.Flags().StringP("output", "o", "", "output file (only success results are saved)")
 }

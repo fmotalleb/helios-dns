@@ -1,3 +1,4 @@
+// Package dns contains DNS server helpers.
 package dns
 
 import (
@@ -9,6 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Serve starts a UDP DNS server and blocks until it exits.
 func Serve(ctx context.Context, listenAddr string, h dns.Handler) error {
 	logger := log.Of(ctx)
 	listener := new(net.ListenConfig)

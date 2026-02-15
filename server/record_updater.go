@@ -1,3 +1,4 @@
+// Package server coordinates DNS serving and background record updates.
 package server
 
 import (
@@ -104,7 +105,6 @@ func collectIPs(
 	var okMu sync.Mutex
 	var wg sync.WaitGroup
 	for _, cidrIter := range samples {
-
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

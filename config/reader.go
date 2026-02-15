@@ -9,6 +9,7 @@ import (
 	"github.com/fmotalleb/go-tools/defaulter"
 )
 
+// Parse reads configuration from file and applies defaults from runtime args.
 func Parse(ctx context.Context, dst *Config, path string, args map[string]any) error {
 	if path != "" {
 		cfg, err := config.ReadAndMergeConfig(ctx, path)
