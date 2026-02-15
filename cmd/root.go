@@ -137,6 +137,7 @@ func init() {
 	rootCmd.Flags().String("sni", "", "sni address to check response against")
 	rootCmd.Flags().Int("port", defaultPort, "port to test against")
 	rootCmd.Flags().Int("status", 0, "http status code expected from server, (zero means no http check)")
+	rootCmd.Flags().Bool("http-only", false, "switch default program to http check instead of full sni check")
 
 	rootCmd.Flags().Int("min-count", 0, "minimum IP samples from each CIDR")
 	rootCmd.Flags().Int("max-count", defaultMaxSampleCount, "maximum IP samples from each CIDR")
@@ -194,6 +195,10 @@ func buildArgsMap(cmd *cobra.Command) (map[string]any, error) {
 	}
 
 	if args["sample_chance"], err = cmd.Flags().GetFloat64("chance"); err != nil {
+		return nil, err
+	}
+
+	if args["http_only"], err = cmd.Flags().GetBool("http-only"); err != nil {
 		return nil, err
 	}
 

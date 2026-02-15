@@ -32,7 +32,8 @@ type ScanConfig struct {
 	SamplesMaximum int     `mapstructure:"sample_max" default:"{{ .args.sample_max }}"`
 	SamplesChance  float64 `mapstructure:"sample_chance" default:"{{ .args.sample_chance }}"`
 
-	Program string `mapstructure:"program"`
+	HTTPOnly bool   `mapstructure:"http_only" default:"{{ .args.http_only }}"`
+	Program  string `mapstructure:"program"`
 
 	Limit int `mapstructure:"result_limit" default:"4"`
 
@@ -74,6 +75,11 @@ func (sc *ScanConfig) BuildVM() (*vm.VM, error) {
 tls.connect port={{ .Port }} sni={{ .SNI }} timeout={{ .Timeout }}
 {{ if gt .StatusCode 0 -}} tls.http.get header.host={{ .SNI }} path=/ expect.status={{ .StatusCode }} {{- end -}}
 `
+	if sc.HTTPOnly {
+		defaultProgram = `
+http.get port={{ .Port }} expect.status={{ .StatusCode }} headers.host={{ .SNI }} timeout={{ .Timeout }}
+`
+	}
 	programStr := cmp.Or(sc.Program, defaultProgram)
 	program, err := template.EvaluateTemplate(programStr, sc)
 	if err != nil {

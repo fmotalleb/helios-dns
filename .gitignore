@@ -41,3 +41,5 @@ dist/
 
 *.local.*
 .cache/
+
+/helios-dns
