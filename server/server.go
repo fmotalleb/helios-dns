@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/fmotalleb/go-tools/log"
 	"github.com/miekg/dns"
@@ -56,79 +57,133 @@ func recordUpdater(ctx context.Context, cfg config.Config, h *dnsHandler) error 
 		zap.Int("domains_count", len(cfg.Domains)),
 	)
 
+	group, groupCtx := errgroup.WithContext(ctx)
 	for _, v := range cfg.Domains {
-		domain := v.Domain
-		sni := v.SNI
-		logger.Info("processing domain",
-			zap.String("domain", domain),
-			zap.String("sni", sni),
-			zap.Int("limit", v.Limit),
-		)
-
-		vm, err := v.BuildVM()
-		if err != nil {
-			logger.Error("failed to build VM",
+		v := v
+		group.Go(func() error {
+			domain := v.Domain
+			sni := v.SNI
+			logger.Info("processing domain",
 				zap.String("domain", domain),
-				zap.Error(err),
+				zap.String("sni", sni),
+				zap.Int("limit", v.Limit),
 			)
-			return err
-		}
 
-		okIPs := make([]net.IP, 0, v.Limit)
-
-		sample, err := v.ReadCIDRsSamples()
-		if err != nil {
-			logger.Error("failed to read CIDR samples",
-				zap.String("domain", domain),
-				zap.Error(err),
-			)
-			return err
-		}
-
-		logger.Debug("CIDR samples loaded",
-			zap.String("domain", domain),
-		)
-
-	iters:
-		for _, iter := range sample {
-			for ip := range iter {
-				logger.Debug("testing IP",
+			vm, err := v.BuildVM()
+			if err != nil {
+				logger.Error("failed to build VM",
 					zap.String("domain", domain),
-					zap.String("ip", ip.String()),
+					zap.Error(err),
 				)
+				return err
+			}
 
-				res := vm.ExecuteIP(ctx, ip)
+			limit := v.Limit
+			if limit <= 0 {
+				limit = 1
+			}
+			okIPs := make([]net.IP, 0, limit)
 
-				if res.Success {
-					ipCopy := make(net.IP, len(ip))
-					copy(ipCopy, ip)
-					okIPs = append(okIPs, ipCopy)
+			sample, err := v.ReadCIDRsSamples()
+			if err != nil {
+				logger.Error("failed to read CIDR samples",
+					zap.String("domain", domain),
+					zap.Error(err),
+				)
+				return err
+			}
 
-					logger.Debug("IP accepted",
-						zap.String("domain", domain),
-						zap.String("ip", ipCopy.String()),
-						zap.Int("accepted_count", len(okIPs)),
-					)
+			logger.Debug("CIDR samples loaded",
+				zap.String("domain", domain),
+			)
 
-					if len(okIPs) == v.Limit {
-						break iters
+			domainCtx, cancel := context.WithCancel(groupCtx)
+			defer cancel()
+
+			jobs := make(chan net.IP)
+			var wg sync.WaitGroup
+			var okMu sync.Mutex
+
+			worker := func() {
+				defer wg.Done()
+				for {
+					select {
+					case <-domainCtx.Done():
+						return
+					case ip, ok := <-jobs:
+						if !ok {
+							return
+						}
+						logger.Debug("testing IP",
+							zap.String("domain", domain),
+							zap.String("ip", ip.String()),
+						)
+
+						res := vm.ExecuteIP(domainCtx, ip)
+
+						if res.Success {
+							ipCopy := make(net.IP, len(ip))
+							copy(ipCopy, ip)
+							okMu.Lock()
+							if len(okIPs) < limit {
+								okIPs = append(okIPs, ipCopy)
+								logger.Debug("IP accepted",
+									zap.String("domain", domain),
+									zap.String("ip", ipCopy.String()),
+									zap.Int("accepted_count", len(okIPs)),
+								)
+								if len(okIPs) == limit {
+									cancel()
+								}
+							}
+							okMu.Unlock()
+						} else {
+							logger.Debug("IP rejected",
+								zap.String("domain", domain),
+								zap.String("ip", ip.String()),
+							)
+						}
 					}
-					break
-				} else {
-					logger.Debug("IP rejected",
-						zap.String("domain", domain),
-						zap.String("ip", ip.String()),
-					)
 				}
 			}
-		}
 
-		h.UpdateRecords(domain, okIPs)
+			wg.Add(limit)
+			for i := 0; i < limit; i++ {
+				go worker()
+			}
 
-		logger.Info("records updated",
-			zap.String("domain", domain),
-			zap.Int("accepted_ips", len(okIPs)),
-		)
+		feed:
+			for _, iter := range sample {
+				for ip := range iter {
+					select {
+					case <-domainCtx.Done():
+						break feed
+					case jobs <- ip:
+					}
+				}
+			}
+			close(jobs)
+			wg.Wait()
+
+			if groupCtx.Err() != nil {
+				return nil
+			}
+
+			h.UpdateRecords(domain, okIPs)
+
+			logger.Info("records updated",
+				zap.String("domain", domain),
+				zap.Int("accepted_ips", len(okIPs)),
+			)
+			return nil
+		})
+	}
+
+	if err := group.Wait(); err != nil {
+		return err
+	}
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
 
 	logger.Info("record updater finished")
