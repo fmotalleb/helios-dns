@@ -101,66 +101,50 @@ func collectIPs(
 	domainCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	jobs := make(chan net.IP)
-	var wg sync.WaitGroup
 	var okMu sync.Mutex
-
-	worker := func() {
-		defer wg.Done()
-		for {
-			select {
-			case <-domainCtx.Done():
-				return
-			case ip, ok := <-jobs:
-				if !ok {
+	var wg sync.WaitGroup
+	for _, cidrIter := range samples {
+		cidrIter := cidrIter
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for ip := range cidrIter {
+				select {
+				case <-domainCtx.Done():
 					return
+				default:
 				}
+
 				logger.Debug("testing IP",
 					zap.String("ip", ip.String()),
 				)
 
 				res := vmRuntime.ExecuteIP(domainCtx, ip)
-
-				if res.Success {
-					ipCopy := make(net.IP, len(ip))
-					copy(ipCopy, ip)
-					okMu.Lock()
-					if len(okIPs) < limit {
-						okIPs = append(okIPs, ipCopy)
-						logger.Debug("IP accepted",
-							zap.String("ip", ipCopy.String()),
-							zap.Int("accepted_count", len(okIPs)),
-						)
-						if len(okIPs) == limit {
-							cancel()
-						}
-					}
-					okMu.Unlock()
-				} else {
+				if !res.Success {
 					logger.Debug("IP rejected",
 						zap.String("ip", ip.String()),
 					)
+					continue
 				}
-			}
-		}
-	}
 
-	wg.Add(limit)
-	for i := 0; i < limit; i++ {
-		go worker()
-	}
+				ipCopy := make(net.IP, len(ip))
+				copy(ipCopy, ip)
 
-feed:
-	for _, iter := range samples {
-		for ip := range iter {
-			select {
-			case <-domainCtx.Done():
-				break feed
-			case jobs <- ip:
+				okMu.Lock()
+				if len(okIPs) < limit {
+					okIPs = append(okIPs, ipCopy)
+					logger.Debug("IP accepted",
+						zap.String("ip", ipCopy.String()),
+						zap.Int("accepted_count", len(okIPs)),
+					)
+					if len(okIPs) == limit {
+						cancel()
+					}
+				}
+				okMu.Unlock()
 			}
-		}
+		}()
 	}
-	close(jobs)
 	wg.Wait()
 
 	if ctx.Err() != nil {
