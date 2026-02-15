@@ -11,8 +11,9 @@ import (
 
 	"github.com/fmotalleb/go-tools/log"
 
-	"github.com/fmotalleb/helios-dns/config"
 	"github.com/fmotalleb/mithra/vm"
+
+	"github.com/fmotalleb/helios-dns/config"
 )
 
 func recordUpdater(ctx context.Context, cfg config.Config, h *dnsHandler) error {
@@ -24,7 +25,6 @@ func recordUpdater(ctx context.Context, cfg config.Config, h *dnsHandler) error 
 
 	group, groupCtx := errgroup.WithContext(ctx)
 	for _, v := range cfg.Domains {
-		v := v
 		group.Go(func() error {
 			return processDomain(groupCtx, v, h, logger)
 		})
@@ -104,7 +104,7 @@ func collectIPs(
 	var okMu sync.Mutex
 	var wg sync.WaitGroup
 	for _, cidrIter := range samples {
-		cidrIter := cidrIter
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
