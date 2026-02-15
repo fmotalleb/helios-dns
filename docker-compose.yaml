@@ -1,0 +1,12 @@
+services:
+  dns:
+    # image: ghcr.io/fmotalleb/helios-dns:0.0.2
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - 127.0.0.1:53:53/udp
+    volumes:
+      - ./config.local.yaml:/config.yaml
+    command: "--config=/config.yaml -v"
