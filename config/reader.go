@@ -33,7 +33,7 @@ func Parse(ctx context.Context, dst *Config, path string, args map[string]any) e
 			v.CIDRs = getCIDRs(args)
 		}
 	}
-	return nil
+	return dst.Validate()
 }
 
 func getCIDRs(args map[string]any) []string {

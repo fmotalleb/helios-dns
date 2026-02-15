@@ -14,29 +14,29 @@ import (
 
 // Config represents application-level settings.
 type Config struct {
-	Listen         string        `mapstructure:"listen" default:"{{ .args.listen }}"`
-	UpdateInterval time.Duration `mapstructure:"interval" default:"{{ .args.interval }}"`
-	Domains        []*ScanConfig `mapstructure:"domains"`
+	Listen         string        `mapstructure:"listen" default:"{{ .args.listen }}" validate:"required,hostport"`
+	UpdateInterval time.Duration `mapstructure:"interval" default:"{{ .args.interval }}" validate:"gt=0"`
+	Domains        []*ScanConfig `mapstructure:"domains" validate:"required,min=1"`
 }
 
 // ScanConfig defines scan settings for a single domain.
 type ScanConfig struct {
-	Domain     string   `mapstructure:"domain"`
-	CIDRs      []string `mapstructure:"cidr"`
+	Domain     string   `mapstructure:"domain" validate:"required,fqdn"`
+	CIDRs      []string `mapstructure:"cidr" validate:"required,min=1,dive,cidr"`
 	SNI        string   `mapstructure:"sni" default:"{{ .args.sni }}"`
-	Timeout    int      `mapstructure:"timeout" default:"{{ .args.timeout }}"`
-	Port       int      `mapstructure:"port" default:"{{ .args.port }}"`
-	Path       string   `mapstructure:"path" default:"{{ .args.path }}"`
-	StatusCode int      `mapstructure:"status_code" default:"{{ .args.status_code }}"`
+	Timeout    int      `mapstructure:"timeout" default:"{{ .args.timeout }}" validate:"gt=0"`
+	Port       int      `mapstructure:"port" default:"{{ .args.port }}" validate:"gte=1,lte=65535"`
+	Path       string   `mapstructure:"path" default:"{{ .args.path }}" validate:"required,path"`
+	StatusCode int      `mapstructure:"status_code" default:"{{ .args.status_code }}" validate:"gte=0,lte=599"`
 
-	SamplesMinimum int     `mapstructure:"sample_min" default:"{{ .args.sample_min }}"`
-	SamplesMaximum int     `mapstructure:"sample_max" default:"{{ .args.sample_max }}"`
-	SamplesChance  float64 `mapstructure:"sample_chance" default:"{{ .args.sample_chance }}"`
+	SamplesMinimum int     `mapstructure:"sample_min" default:"{{ .args.sample_min }}" validate:"gte=0"`
+	SamplesMaximum int     `mapstructure:"sample_max" default:"{{ .args.sample_max }}" validate:"gte=0"`
+	SamplesChance  float64 `mapstructure:"sample_chance" default:"{{ .args.sample_chance }}" validate:"gte=0,lte=1"`
 
 	HTTPOnly bool   `mapstructure:"http_only" default:"{{ .args.http_only }}"`
 	Program  string `mapstructure:"program"`
 
-	Limit int `mapstructure:"result_limit" default:"4"`
+	Limit int `mapstructure:"result_limit" default:"4" validate:"gt=0"`
 
 	vm *vm.VM
 }
