@@ -26,168 +26,30 @@ func Serve(ctx context.Context, cfg config.Config) error {
 		memory: make(map[string][]net.IP),
 		ttl:    uint32(cfg.UpdateInterval.Seconds()),
 	}
-	errCh := make(chan error, 2)
-	go func() {
-		if err := dnsServer.Serve(localCtx, cfg.Listen, handler); err != nil {
-			errCh <- err
+	group, groupCtx := errgroup.WithContext(localCtx)
+
+	group.Go(func() error {
+		if err := dnsServer.Serve(groupCtx, cfg.Listen, handler); err != nil {
+			return err
 		}
-	}()
+		return nil
+	})
 	timer := time.NewTimer(cfg.UpdateInterval)
 	defer timer.Stop()
-	go func() {
-		for range timer.C {
-			if err := recordUpdater(localCtx, cfg, handler); err != nil {
-				errCh <- err
-			}
+	group.Go(func() error {
+		if err := recordUpdater(groupCtx, cfg, handler); err != nil {
+			return err
 		}
-	}()
-	// TODO: fail-fast scenario, handle errors
-	select {
-	case err := <-errCh:
-		return err
-	case <-ctx.Done():
+		for range timer.C {
+			if err := recordUpdater(groupCtx, cfg, handler); err != nil {
+				return err
+			}
+			timer.Reset(cfg.UpdateInterval)
+		}
 		return nil
-	}
-}
+	})
 
-func recordUpdater(ctx context.Context, cfg config.Config, h *dnsHandler) error {
-	logger := log.Of(ctx)
-
-	logger.Info("record updater started",
-		zap.Int("domains_count", len(cfg.Domains)),
-	)
-
-	group, groupCtx := errgroup.WithContext(ctx)
-	for _, v := range cfg.Domains {
-		v := v
-		group.Go(func() error {
-			domain := v.Domain
-			sni := v.SNI
-			logger.Info("processing domain",
-				zap.String("domain", domain),
-				zap.String("sni", sni),
-				zap.Int("limit", v.Limit),
-			)
-
-			vm, err := v.BuildVM()
-			if err != nil {
-				logger.Error("failed to build VM",
-					zap.String("domain", domain),
-					zap.Error(err),
-				)
-				return err
-			}
-
-			limit := v.Limit
-			if limit <= 0 {
-				limit = 1
-			}
-			okIPs := make([]net.IP, 0, limit)
-
-			sample, err := v.ReadCIDRsSamples()
-			if err != nil {
-				logger.Error("failed to read CIDR samples",
-					zap.String("domain", domain),
-					zap.Error(err),
-				)
-				return err
-			}
-
-			logger.Debug("CIDR samples loaded",
-				zap.String("domain", domain),
-			)
-
-			domainCtx, cancel := context.WithCancel(groupCtx)
-			defer cancel()
-
-			jobs := make(chan net.IP)
-			var wg sync.WaitGroup
-			var okMu sync.Mutex
-
-			worker := func() {
-				defer wg.Done()
-				for {
-					select {
-					case <-domainCtx.Done():
-						return
-					case ip, ok := <-jobs:
-						if !ok {
-							return
-						}
-						logger.Debug("testing IP",
-							zap.String("domain", domain),
-							zap.String("ip", ip.String()),
-						)
-
-						res := vm.ExecuteIP(domainCtx, ip)
-
-						if res.Success {
-							ipCopy := make(net.IP, len(ip))
-							copy(ipCopy, ip)
-							okMu.Lock()
-							if len(okIPs) < limit {
-								okIPs = append(okIPs, ipCopy)
-								logger.Debug("IP accepted",
-									zap.String("domain", domain),
-									zap.String("ip", ipCopy.String()),
-									zap.Int("accepted_count", len(okIPs)),
-								)
-								if len(okIPs) == limit {
-									cancel()
-								}
-							}
-							okMu.Unlock()
-						} else {
-							logger.Debug("IP rejected",
-								zap.String("domain", domain),
-								zap.String("ip", ip.String()),
-							)
-						}
-					}
-				}
-			}
-
-			wg.Add(limit)
-			for i := 0; i < limit; i++ {
-				go worker()
-			}
-
-		feed:
-			for _, iter := range sample {
-				for ip := range iter {
-					select {
-					case <-domainCtx.Done():
-						break feed
-					case jobs <- ip:
-					}
-				}
-			}
-			close(jobs)
-			wg.Wait()
-
-			if groupCtx.Err() != nil {
-				return nil
-			}
-
-			h.UpdateRecords(domain, okIPs)
-
-			logger.Info("records updated",
-				zap.String("domain", domain),
-				zap.Int("accepted_ips", len(okIPs)),
-			)
-			return nil
-		})
-	}
-
-	if err := group.Wait(); err != nil {
-		return err
-	}
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
-
-	logger.Info("record updater finished")
-	return nil
+	return group.Wait()
 }
 
 type dnsHandler struct {
