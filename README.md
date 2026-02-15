@@ -50,6 +50,7 @@ interval: 10m
 domains:
   - domain: "edge.example.com."
     sni: "origin.example.com"
+    path: "/healthz"
     cidr:
       - "203.0.113.0/24"
       - "198.51.100.0/24"
@@ -74,6 +75,7 @@ domains:
 - `domain`: DNS question name key served by this config. Use FQDN format (typically with trailing `.`).
 - `cidr`: CIDR list to scan, (defaults to cloudflare's CIDR list).
 - `sni`: SNI/Host used in health checks.
+- `path`: HTTP path used by `http.get`/`tls.http.get` checks (default: `/`).
 - `timeout`: timeout in nanoseconds for checks.
 - `port`: target port.
 - `status_code`: expected HTTP status (`0` disables HTTP status check).
@@ -93,6 +95,7 @@ domains:
     --cidr strings        CIDRs to test (defaults to Cloudflare ranges)
 -t, --timeout duration    timeout per IP check (default 200ms)
     --sni string          SNI/host for health checks
+    --path string         HTTP(S) path for checks (default /)
     --port int            target port (default 443)
     --status int          expected HTTP status (0 disables status check)
     --http-only           use HTTP check instead of TLS+SNI check
@@ -114,11 +117,12 @@ You can override the default check logic with `program` in each domain entry.
 Default behavior:
 
 - TLS connect with SNI.
-- Optional HTTP GET check when `status_code > 0`.
+- Optional HTTP GET check to `path` when `status_code > 0`.
 
 `http_only: true` default behavior:
 
-- HTTP GET against the IP and expected status.
+- TCP connect only by default.
+- Optional HTTP GET to `path` when `status_code > 0`.
 
 The `program` field is rendered as a template and can use fields such as:
 
