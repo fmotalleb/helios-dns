@@ -77,7 +77,8 @@ tls.connect port={{ .Port }} sni={{ .SNI }} timeout={{ .Timeout }}
 `
 	if sc.HTTPOnly {
 		defaultProgram = `
-http.get port={{ .Port }} expect.status={{ .StatusCode }} headers.host={{ .SNI }} timeout={{ .Timeout }}
+tcp.connect port={{ .Port }} timeout={{ .Timeout }}
+{{ if gt .StatusCode 0 -}} http.get port={{ .Port }} expect.status={{ .StatusCode }} headers.host={{ .SNI }} timeout={{ .Timeout }} {{- end -}}
 `
 	}
 	programStr := cmp.Or(sc.Program, defaultProgram)

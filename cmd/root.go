@@ -70,13 +70,13 @@ const (
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:   "helios-dns",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "DNS server that publishes healthy IPs discovered from CIDR scans",
+	Long: `helios-dns continuously scans configured CIDR ranges, validates each
+candidate IP using TLS/SNI or HTTP checks, and serves the successful IPs as
+A records for configured domain names.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+Use a config file for domain-specific rules, and optionally override defaults
+with command-line flags.`,
 	Version: git.String(),
 	PersistentPreRun: func(_ *cobra.Command, _ []string) {
 		if debug {
@@ -115,6 +115,7 @@ to quickly create a Cobra application.`,
 		)
 		return err
 	},
+	SilenceUsage: true,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -142,8 +143,6 @@ func init() {
 	rootCmd.Flags().Int("min-count", 0, "minimum IP samples from each CIDR")
 	rootCmd.Flags().Int("max-count", defaultMaxSampleCount, "maximum IP samples from each CIDR")
 	rootCmd.Flags().Float64("chance", defaultSampleChance, "chance of picking each IP sample from CIDR")
-
-	rootCmd.Flags().StringP("output", "o", "", "output file (only success results are saved)")
 }
 
 func buildArgsMap(cmd *cobra.Command) (map[string]any, error) {
