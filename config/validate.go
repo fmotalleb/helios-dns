@@ -97,6 +97,7 @@ func (sc *ScanConfig) Validate() error {
 	return formatValidationErrors(validatorInstance().Struct(sc), "")
 }
 
+//nolint:gocritic,gocyclo  // not an important function
 func formatValidationErrors(err error, prefix string) error {
 	if err == nil {
 		return nil

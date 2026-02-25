@@ -20,14 +20,20 @@ import (
 func recordUpdater(ctx context.Context, cfg config.Config, h *dnsHandler) error {
 	logger := log.Of(ctx)
 
+	maxWorkers := normalizeMaxWorkers(cfg.MaxWorkers)
+
 	logger.Info("record updater started",
 		zap.Int("domains_count", len(cfg.Domains)),
+		zap.Int("max_workers", maxWorkers),
 	)
+
+	workerTokens := make(chan struct{}, maxWorkers)
 
 	group, groupCtx := errgroup.WithContext(ctx)
 	for _, v := range cfg.Domains {
+		domainCfg := v
 		group.Go(func() error {
-			return processDomain(groupCtx, v, h, logger)
+			return processDomain(groupCtx, domainCfg, h, logger, workerTokens)
 		})
 	}
 
@@ -42,7 +48,7 @@ func recordUpdater(ctx context.Context, cfg config.Config, h *dnsHandler) error 
 	return nil
 }
 
-func processDomain(ctx context.Context, cfg *config.ScanConfig, h *dnsHandler, logger *zap.Logger) error {
+func processDomain(ctx context.Context, cfg *config.ScanConfig, h *dnsHandler, logger *zap.Logger, workerTokens chan struct{}) error {
 	domainLogger := logger.With(
 		zap.String("domain", cfg.Domain),
 		zap.String("sni", cfg.SNI),
@@ -67,7 +73,7 @@ func processDomain(ctx context.Context, cfg *config.ScanConfig, h *dnsHandler, l
 
 	domainLogger.Debug("CIDR samples loaded")
 
-	okIPs, err := collectIPs(ctx, vmRuntime, sample, domainLogger, limit)
+	okIPs, err := collectIPs(ctx, vmRuntime, sample, domainLogger, limit, workerTokens)
 	if err != nil {
 		return err
 	}
@@ -90,62 +96,108 @@ func normalizeLimit(limit int) int {
 	return limit
 }
 
+func normalizeMaxWorkers(maxWorkers int) int {
+	if maxWorkers <= 0 {
+		return 1
+	}
+	return maxWorkers
+}
+
 func collectIPs(
 	ctx context.Context,
 	vmRuntime *vm.VM,
 	samples []iter.Seq[net.IP],
 	logger *zap.Logger,
 	limit int,
+	workerTokens chan struct{},
 ) ([]net.IP, error) {
 	okIPs := make([]net.IP, 0, limit)
 
 	domainCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	var okMu sync.Mutex
-	var wg sync.WaitGroup
+	ipCh := make(chan net.IP)
+
+	var producers sync.WaitGroup
+	producers.Add(len(samples))
 	for _, cidrIter := range samples {
-		wg.Add(1)
+		iter := cidrIter
 		go func() {
-			defer wg.Done()
-			for ip := range cidrIter {
+			defer producers.Done()
+			for ip := range iter {
 				select {
 				case <-domainCtx.Done():
 					return
-				default:
+				case ipCh <- ip:
 				}
-
-				logger.Debug("testing IP",
-					zap.String("ip", ip.String()),
-				)
-
-				res := vmRuntime.ExecuteIP(domainCtx, ip)
-				if !res.Success {
-					logger.Debug("IP rejected",
-						zap.String("ip", ip.String()),
-					)
-					continue
-				}
-
-				ipCopy := make(net.IP, len(ip))
-				copy(ipCopy, ip)
-
-				okMu.Lock()
-				if len(okIPs) < limit {
-					okIPs = append(okIPs, ipCopy)
-					logger.Debug("IP accepted",
-						zap.String("ip", ipCopy.String()),
-						zap.Int("accepted_count", len(okIPs)),
-					)
-					if len(okIPs) == limit {
-						cancel()
-					}
-				}
-				okMu.Unlock()
 			}
 		}()
 	}
-	wg.Wait()
+
+	go func() {
+		producers.Wait()
+		close(ipCh)
+	}()
+
+	var okMu sync.Mutex
+	var workers sync.WaitGroup
+	workerCount := len(samples)
+	if workerCount == 0 {
+		return okIPs, nil
+	}
+	for i := 0; i < workerCount; i++ {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			for {
+				select {
+				case <-domainCtx.Done():
+					return
+				case ip, ok := <-ipCh:
+					if !ok {
+						return
+					}
+
+					select {
+					case <-domainCtx.Done():
+						return
+					case workerTokens <- struct{}{}:
+					}
+
+					logger.Debug("testing IP",
+						zap.String("ip", ip.String()),
+					)
+
+					res := vmRuntime.ExecuteIP(domainCtx, ip)
+
+					<-workerTokens
+					if !res.Success {
+						logger.Debug("IP rejected",
+							zap.String("ip", ip.String()),
+						)
+						continue
+					}
+
+					ipCopy := make(net.IP, len(ip))
+					copy(ipCopy, ip)
+
+					okMu.Lock()
+					if len(okIPs) < limit {
+						okIPs = append(okIPs, ipCopy)
+						logger.Debug("IP accepted",
+							zap.String("ip", ipCopy.String()),
+							zap.Int("accepted_count", len(okIPs)),
+						)
+						if len(okIPs) == limit {
+							cancel()
+						}
+					}
+					okMu.Unlock()
+				}
+			}
+		}()
+	}
+	workers.Wait()
 
 	if ctx.Err() != nil {
 		return okIPs, nil

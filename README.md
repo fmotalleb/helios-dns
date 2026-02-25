@@ -68,6 +68,7 @@ domains:
 
 - `listen`: UDP listen address for DNS server (example: `127.0.0.1:5353`).
 - `interval`: scan/update interval.
+- `max_workers`: max parallel IP checks across all domains.
 - `domains`: list of per-domain scan configs.
 
 ### Domain fields
@@ -102,6 +103,7 @@ domains:
     --min-count int       minimum sampled IPs per CIDR
     --max-count int       maximum sampled IPs per CIDR (default 8)
     --chance float        sampling probability (default 0.05)
+    --max-workers int     maximum parallel IP checks across all domains (default 50)
 -v, --verbose             enable debug logging
 ```
 

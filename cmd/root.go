@@ -65,6 +65,7 @@ const (
 	defaultPort           = 443
 	defaultMaxSampleCount = 8
 	defaultSampleChance   = 0.05
+	defaultMaxWorkers     = 50
 )
 
 // rootCmd represents the base command when called without any subcommands.
@@ -144,6 +145,7 @@ func init() {
 	rootCmd.Flags().Int("min-count", 0, "minimum IP samples from each CIDR")
 	rootCmd.Flags().Int("max-count", defaultMaxSampleCount, "maximum IP samples from each CIDR")
 	rootCmd.Flags().Float64("chance", defaultSampleChance, "chance of picking each IP sample from CIDR")
+	rootCmd.Flags().Int("max-workers", defaultMaxWorkers, "maximum parallel IP checks across all domains")
 }
 
 func buildArgsMap(cmd *cobra.Command) (map[string]any, error) {
@@ -195,6 +197,10 @@ func buildArgsMap(cmd *cobra.Command) (map[string]any, error) {
 	}
 
 	if args["sample_chance"], err = cmd.Flags().GetFloat64("chance"); err != nil {
+		return nil, err
+	}
+
+	if args["max_workers"], err = cmd.Flags().GetInt("max-workers"); err != nil {
 		return nil, err
 	}
 
