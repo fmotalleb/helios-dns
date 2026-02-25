@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Helios DNS Status</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f1e7;
+      --ink: #1d1b16;
+      --ink-soft: #5c564b;
+      --accent: #a64022;
+      --card: #ffffff;
+      --border: #e6ddcc;
+      --muted: #f0e8d6;
+      --good: #2a7a48;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+      background: radial-gradient(circle at top, #fff7e6 0%, var(--bg) 55%, #efe4ce 100%);
+      color: var(--ink);
+    }
+    header {
+      padding: 28px 32px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 26px;
+      letter-spacing: 0.02em;
+    }
+    header p {
+      margin: 6px 0 0;
+      color: var(--ink-soft);
+      font-size: 14px;
+    }
+    main {
+      padding: 0 32px 40px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 18px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 12px 30px rgba(37, 24, 7, 0.08);
+    }
+    .domain {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .domain h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+    .pill {
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--muted);
+      color: var(--ink-soft);
+      font-size: 12px;
+    }
+    .section {
+      margin-top: 14px;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+    }
+    .section h3 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ink-soft);
+    }
+    .kv {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 6px 10px;
+      font-size: 13px;
+    }
+    .kv span {
+      color: var(--ink-soft);
+    }
+    .ips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .ip {
+      background: #f6f9f3;
+      color: var(--good);
+      border: 1px solid #d5e6d6;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+      font-size: 12px;
+    }
+    .empty {
+      color: var(--ink-soft);
+      font-style: italic;
+      font-size: 13px;
+    }
+    footer {
+      margin-top: 24px;
+      color: var(--ink-soft);
+      font-size: 12px;
+    }
+    @media (max-width: 640px) {
+      header { padding: 22px 20px 10px; flex-direction: column; align-items: flex-start; }
+      main { padding: 0 20px 32px; }
+      .kv { grid-template-columns: 100px 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Helios DNS Status</h1>
+      <p>Live view of scan results and DNS answers.</p>
+    </div>
+    <div class="pill" id="last-updated">Loading…</div>
+  </header>
+  <main>
+    <div class="grid" id="cards"></div>
+    <footer>Metrics available at <code>/metrics</code>. API at <code>/api/status</code>.</footer>
+  </main>
+  <script>
+    const formatTime = (value) => {
+      if (!value) return "never";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return date.toLocaleString();
+    };
+
+    const render = (payload) => {
+      const container = document.getElementById("cards");
+      container.innerHTML = "";
+      document.getElementById("last-updated").textContent =
+        "Updated " + formatTime(payload.generated_at);
+
+      payload.domains.forEach((domain) => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <div class="domain">
+            <h2>${domain.domain}</h2>
+            <span class="pill">${formatTime(domain.last_update)}</span>
+          </div>
+          <div class="section">
+            <h3>IPs</h3>
+            <div class="ips">
+              ${domain.ips.length ? domain.ips.map((ip) => `<span class="ip">${ip}</span>`).join("") : `<span class="empty">No IPs yet</span>`}
+            </div>
+          </div>
+          <div class="section">
+            <h3>Scan Config</h3>
+            <div class="kv">
+              <span>SNI</span><div>${domain.config.sni || "-"}</div>
+              <span>Path</span><div>${domain.config.path}</div>
+              <span>Port</span><div>${domain.config.port}</div>
+              <span>Timeout</span><div>${domain.config.timeout}</div>
+              <span>Status</span><div>${domain.config.status_code}</div>
+              <span>HTTP Only</span><div>${domain.config.http_only}</div>
+              <span>Result Limit</span><div>${domain.config.result_limit}</div>
+              <span>Samples</span><div>${domain.config.sample_min}–${domain.config.sample_max} (${domain.config.sample_chance})</div>
+              <span>CIDRs</span><div>${domain.config.cidr.join(", ")}</div>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    };
+
+    const load = async () => {
+      const response = await fetch("/api/status");
+      const payload = await response.json();
+      render(payload);
+    };
+
+    load();
+    setInterval(load, 5000);
+  </script>
+</body>
+</html>

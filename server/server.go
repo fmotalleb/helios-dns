@@ -25,12 +25,19 @@ func Serve(ctx context.Context, cfg config.Config) error {
 		logger: logger,
 		rwMux:  new(sync.RWMutex),
 		memory: make(map[string][]net.IP),
+		updatedAt: make(map[string]time.Time),
 		ttl:    uint32(cfg.UpdateInterval.Seconds()),
 	}
 	group, groupCtx := errgroup.WithContext(localCtx)
 
 	group.Go(func() error {
 		if err := dnsServer.Serve(groupCtx, cfg.Listen, handler); err != nil {
+			return err
+		}
+		return nil
+	})
+	group.Go(func() error {
+		if err := serveHTTP(groupCtx, cfg.HTTPListen, cfg, handler); err != nil {
 			return err
 		}
 		return nil
@@ -57,14 +64,42 @@ type dnsHandler struct {
 	logger *zap.Logger
 	rwMux  *sync.RWMutex
 	memory map[string][]net.IP
+	updatedAt map[string]time.Time
 
 	ttl uint32
 }
 
 func (d *dnsHandler) UpdateRecords(key string, records []net.IP) {
+	now := time.Now()
 	d.rwMux.Lock()
 	defer d.rwMux.Unlock()
 	d.memory[key] = records
+	d.updatedAt[key] = now
+	updateRecordMetrics(key, records, now)
+}
+
+type recordSnapshot struct {
+	IPs []net.IP
+	UpdatedAt time.Time
+}
+
+func (d *dnsHandler) Snapshot() map[string]recordSnapshot {
+	d.rwMux.RLock()
+	defer d.rwMux.RUnlock()
+	result := make(map[string]recordSnapshot, len(d.memory))
+	for key, records := range d.memory {
+		copyRecords := make([]net.IP, len(records))
+		for i, ip := range records {
+			ipCopy := make(net.IP, len(ip))
+			copy(ipCopy, ip)
+			copyRecords[i] = ipCopy
+		}
+		result[key] = recordSnapshot{
+			IPs: copyRecords,
+			UpdatedAt: d.updatedAt[key],
+		}
+	}
+	return result
 }
 
 // ServeDNS implements [dns.Handler].

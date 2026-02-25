@@ -66,6 +66,7 @@ const (
 	defaultMaxSampleCount = 8
 	defaultSampleChance   = 0.05
 	defaultMaxWorkers     = 50
+	defaultHTTPListen     = "127.0.0.1:8080"
 )
 
 // rootCmd represents the base command when called without any subcommands.
@@ -133,6 +134,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&debug, "verbose", "v", false, "enable debug logging")
 	rootCmd.Flags().StringP("config", "c", "", "config file, if config has a value set, argument for that value will be ignored")
 	rootCmd.Flags().StringP("listen", "l", "127.0.0.1:5353", "listen address of dns server")
+	rootCmd.Flags().String("http-listen", defaultHTTPListen, "listen address of http server")
 	rootCmd.Flags().Duration("interval", defaultInterval, "update interval for records")
 	rootCmd.Flags().StringArray("cidr", cfIps, "CIDRs to test against")
 	rootCmd.Flags().String("path", "/", "path of http(s) test")
@@ -164,6 +166,10 @@ func buildArgsMap(cmd *cobra.Command) (map[string]any, error) {
 	}
 
 	if args["listen"], err = cmd.Flags().GetString("listen"); err != nil {
+		return nil, err
+	}
+
+	if args["http_listen"], err = cmd.Flags().GetString("http-listen"); err != nil {
 		return nil, err
 	}
 
