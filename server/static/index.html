@@ -6,21 +6,21 @@
   <title>Helios DNS Status</title>
   <style>
     :root {
-      color-scheme: light;
-      --bg: #f5f1e7;
-      --ink: #1d1b16;
-      --ink-soft: #5c564b;
-      --accent: #a64022;
-      --card: #ffffff;
-      --border: #e6ddcc;
-      --muted: #f0e8d6;
-      --good: #2a7a48;
+      color-scheme: dark;
+      --bg: #0c0f14;
+      --ink: #eef1f6;
+      --ink-soft: #9aa4b4;
+      --accent: #6bd6ff;
+      --card: #141a24;
+      --border: #263042;
+      --muted: #1d2533;
+      --good: #7ef0a1;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
-      background: radial-gradient(circle at top, #fff7e6 0%, var(--bg) 55%, #efe4ce 100%);
+      background: radial-gradient(circle at top, #1b2331 0%, var(--bg) 55%, #0a0d12 100%);
       color: var(--ink);
     }
     header {
@@ -53,7 +53,7 @@
       border: 1px solid var(--border);
       border-radius: 14px;
       padding: 16px;
-      box-shadow: 0 12px 30px rgba(37, 24, 7, 0.08);
+      box-shadow: 0 12px 30px rgba(4, 8, 14, 0.6);
     }
     .domain {
       display: flex;
@@ -99,9 +99,9 @@
       gap: 6px;
     }
     .ip {
-      background: #f6f9f3;
+      background: #0f1a17;
       color: var(--good);
-      border: 1px solid #d5e6d6;
+      border: 1px solid #213127;
       border-radius: 6px;
       padding: 4px 8px;
       font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
@@ -111,6 +111,32 @@
       color: var(--ink-soft);
       font-style: italic;
       font-size: 13px;
+    }
+    details {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: #0f141e;
+    }
+    details summary {
+      cursor: pointer;
+      color: var(--ink-soft);
+      font-size: 13px;
+      list-style: none;
+    }
+    details summary::-webkit-details-marker {
+      display: none;
+    }
+    details[open] summary {
+      color: var(--accent);
+    }
+    .cidr-list {
+      margin-top: 8px;
+      font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+      font-size: 12px;
+      color: var(--ink);
+      line-height: 1.5;
+      word-break: break-word;
     }
     footer {
       margin-top: 24px;
@@ -175,7 +201,13 @@
               <span>HTTP Only</span><div>${domain.config.http_only}</div>
               <span>Result Limit</span><div>${domain.config.result_limit}</div>
               <span>Samples</span><div>${domain.config.sample_min}–${domain.config.sample_max} (${domain.config.sample_chance})</div>
-              <span>CIDRs</span><div>${domain.config.cidr.join(", ")}</div>
+              <span>CIDRs</span>
+              <div>
+                <details>
+                  <summary>${domain.config.cidr.length} CIDR(s)</summary>
+                  <div class="cidr-list">${domain.config.cidr.join(", ")}</div>
+                </details>
+              </div>
             </div>
           </div>
         `;
