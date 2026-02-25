@@ -42,7 +42,7 @@ The included `docker-compose.yaml` mounts `./config.local.yaml` into the contain
 
 ## Configuration
 
-Example `config.yaml`:
+Example `config.yaml` (see `config.yaml` for inline docs):
 
 ```yaml
 listen: 127.0.0.1:5353
