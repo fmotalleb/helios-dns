@@ -112,6 +112,7 @@ func collectIPs(
 	workerTokens chan struct{},
 ) ([]net.IP, error) {
 	okIPs := make([]net.IP, 0, limit)
+	seen := make(map[string]struct{}, limit)
 
 	domainCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -183,6 +184,12 @@ func collectIPs(
 
 					okMu.Lock()
 					if len(okIPs) < limit {
+						key := ipCopy.String()
+						if _, exists := seen[key]; exists {
+							okMu.Unlock()
+							continue
+						}
+						seen[key] = struct{}{}
 						okIPs = append(okIPs, ipCopy)
 						logger.Debug("IP accepted",
 							zap.String("ip", ipCopy.String()),
