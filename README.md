@@ -69,7 +69,7 @@ domains:
 - `listen`: UDP listen address for DNS server (example: `127.0.0.1:5353`).
 - `interval`: scan/update interval.
 - `max_workers`: max parallel IP checks across all domains.
-- `http_listen`: HTTP server listen address.
+- `http_listen`: HTTP server listen address (omit or empty to disable).
 - `domains`: list of per-domain scan configs.
 
 ### Domain fields
@@ -95,7 +95,7 @@ domains:
 -l, --listen string       DNS listen address (default 127.0.0.1:5353)
     --interval duration   record refresh interval (default 10m)
     --cidr strings        CIDRs to test (defaults to Cloudflare ranges)
-    --http-listen string  listen address of http server (default 127.0.0.1:8080)
+    --http-listen string  listen address of http server (disabled if empty)
 -t, --timeout duration    timeout per IP check (default 200ms)
     --sni string          SNI/host for health checks
     --path string         HTTP(S) path for checks (default /)

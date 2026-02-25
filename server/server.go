@@ -26,7 +26,11 @@ func Serve(ctx context.Context, cfg config.Config) error {
 		rwMux:  new(sync.RWMutex),
 		memory: make(map[string][]net.IP),
 		updatedAt: make(map[string]time.Time),
+		sniByDomain: make(map[string]string),
 		ttl:    uint32(cfg.UpdateInterval.Seconds()),
+	}
+	for _, domainCfg := range cfg.Domains {
+		handler.sniByDomain[domainCfg.Domain] = domainCfg.SNI
 	}
 	group, groupCtx := errgroup.WithContext(localCtx)
 
@@ -36,12 +40,14 @@ func Serve(ctx context.Context, cfg config.Config) error {
 		}
 		return nil
 	})
-	group.Go(func() error {
-		if err := serveHTTP(groupCtx, cfg.HTTPListen, cfg, handler); err != nil {
-			return err
-		}
-		return nil
-	})
+	if cfg.HTTPListen != "" {
+		group.Go(func() error {
+			if err := serveHTTP(groupCtx, cfg.HTTPListen, cfg, handler); err != nil {
+				return err
+			}
+			return nil
+		})
+	}
 	timer := time.NewTimer(cfg.UpdateInterval)
 	defer timer.Stop()
 	group.Go(func() error {
@@ -65,6 +71,7 @@ type dnsHandler struct {
 	rwMux  *sync.RWMutex
 	memory map[string][]net.IP
 	updatedAt map[string]time.Time
+	sniByDomain map[string]string
 
 	ttl uint32
 }
@@ -114,6 +121,8 @@ func (d *dnsHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 	q := r.Question[0]
+	sni := d.sniByDomain[q.Name]
+	recordDNSRequest(q.Name, sni)
 	logger := d.logger.WithLazy(
 		zap.String("name", q.Name),
 		zap.Uint16("class", q.Qclass),
@@ -137,6 +146,7 @@ func (d *dnsHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		}
 		return
 	}
+	recordDNSAnswer(q.Name, sni, len(res))
 	for _, addr := range res {
 		rr := &dns.A{
 			Hdr: dns.RR_Header{

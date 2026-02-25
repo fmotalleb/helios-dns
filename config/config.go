@@ -17,7 +17,7 @@ type Config struct {
 	Listen         string        `mapstructure:"listen" default:"{{ .args.listen }}" validate:"required,hostport"`
 	UpdateInterval time.Duration `mapstructure:"interval" default:"{{ .args.interval }}" validate:"gt=0"`
 	MaxWorkers     int           `mapstructure:"max_workers" default:"{{ .args.max_workers }}" validate:"gt=0"`
-	HTTPListen     string        `mapstructure:"http_listen" default:"{{ .args.http_listen }}" validate:"required,hostport"`
+	HTTPListen     string        `mapstructure:"http_listen" default:"{{ .args.http_listen }}" validate:"omitempty,hostport"`
 	Domains        []*ScanConfig `mapstructure:"domains" validate:"required,min=1"`
 }
 

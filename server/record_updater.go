@@ -73,7 +73,7 @@ func processDomain(ctx context.Context, cfg *config.ScanConfig, h *dnsHandler, l
 
 	domainLogger.Debug("CIDR samples loaded")
 
-	okIPs, err := collectIPs(ctx, vmRuntime, sample, domainLogger, limit, workerTokens)
+	okIPs, err := collectIPs(ctx, vmRuntime, sample, domainLogger, limit, workerTokens, cfg.Domain, cfg.SNI)
 	if err != nil {
 		return err
 	}
@@ -110,6 +110,8 @@ func collectIPs(
 	logger *zap.Logger,
 	limit int,
 	workerTokens chan struct{},
+	domain string,
+	sni string,
 ) ([]net.IP, error) {
 	okIPs := make([]net.IP, 0, limit)
 	seen := make(map[string]struct{}, limit)
@@ -173,11 +175,13 @@ func collectIPs(
 
 					<-workerTokens
 					if !res.Success {
+						recordScanResult(domain, sni, false)
 						logger.Debug("IP rejected",
 							zap.String("ip", ip.String()),
 						)
 						continue
 					}
+					recordScanResult(domain, sni, true)
 
 					ipCopy := make(net.IP, len(ip))
 					copy(ipCopy, ip)
