@@ -4,10 +4,10 @@
 listen: 127.0.0.1:5657
 
 # HTTP server listen address. Omit or leave empty to disable the HTTP server.
-# http_listen: 127.0.0.1:8080
+http_listen: 127.0.0.1:8080
 
 # Record refresh interval (Go duration).
-# interval: 10m
+interval: 10m
 
 # Max parallel IP checks across all domains.
 # max_workers: 50
@@ -43,7 +43,7 @@ domains:
     # sample_min: 0      # minimum samples per CIDR
     # sample_max: 16     # maximum samples per CIDR
     # sample_chance: 0.05 # sampling probability per candidate IP
-    
+
     # program: |         # optional custom Mithra program template
     #   tls.connect port={{ .Port }} sni={{ .SNI }} timeout={{ .Timeout }}
     #   tls.http.get header.host={{ .SNI }} path={{ .Path }} expect.status={{ .StatusCode }}

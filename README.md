@@ -2,6 +2,8 @@
 
 `helios-dns` is a DNS server that scans CIDR ranges for reachable endpoints, keeps only healthy IPs, and announces those IPs as `A` records for configured domains.
 
+![HTTP server](docs/assets/http-server.png)
+
 ## How it works
 
 1. For each configured domain, it samples IPs from one or more CIDRs.
