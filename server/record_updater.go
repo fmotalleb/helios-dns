@@ -128,10 +128,8 @@ func collectIPs(
 		go func() {
 			defer producers.Done()
 			for ip := range iter {
-				select {
-				case <-domainCtx.Done():
+				if !sendIP(domainCtx, ipCh, ip) {
 					return
-				case ipCh <- ip:
 				}
 			}
 		}()
@@ -152,60 +150,7 @@ func collectIPs(
 		workers.Add(1)
 		go func() {
 			defer workers.Done()
-			for {
-				select {
-				case <-domainCtx.Done():
-					return
-				case ip, ok := <-ipCh:
-					if !ok {
-						return
-					}
-
-					select {
-					case <-domainCtx.Done():
-						return
-					case workerTokens <- struct{}{}:
-					}
-
-					logger.Debug("testing IP",
-						zap.String("ip", ip.String()),
-					)
-
-					res := vmRuntime.ExecuteIP(domainCtx, ip)
-
-					<-workerTokens
-					if !res.Success {
-						recordScanResult(domain, sni, false)
-						logger.Debug("IP rejected",
-							zap.String("ip", ip.String()),
-						)
-						continue
-					}
-					recordScanResult(domain, sni, true)
-
-					ipCopy := make(net.IP, len(ip))
-					copy(ipCopy, ip)
-
-					okMu.Lock()
-					if len(okIPs) < limit {
-						key := ipCopy.String()
-						if _, exists := seen[key]; exists {
-							okMu.Unlock()
-							continue
-						}
-						seen[key] = struct{}{}
-						okIPs = append(okIPs, ipCopy)
-						logger.Debug("IP accepted",
-							zap.String("ip", ipCopy.String()),
-							zap.Int("accepted_count", len(okIPs)),
-						)
-						if len(okIPs) == limit {
-							cancel()
-						}
-					}
-					okMu.Unlock()
-				}
-			}
+			runWorker(domainCtx, ipCh, workerTokens, vmRuntime, logger, domain, sni, limit, &okMu, seen, &okIPs, cancel)
 		}()
 	}
 	workers.Wait()
@@ -214,4 +159,115 @@ func collectIPs(
 		return okIPs, nil
 	}
 	return okIPs, nil
+}
+
+func sendIP(ctx context.Context, out chan<- net.IP, ip net.IP) bool {
+	select {
+	case <-ctx.Done():
+		return false
+	case out <- ip:
+		return true
+	}
+}
+
+func runWorker(
+	ctx context.Context,
+	ipCh <-chan net.IP,
+	workerTokens chan struct{},
+	vmRuntime *vm.VM,
+	logger *zap.Logger,
+	domain string,
+	sni string,
+	limit int,
+	okMu *sync.Mutex,
+	seen map[string]struct{},
+	okIPs *[]net.IP,
+	cancel context.CancelFunc,
+) {
+	for {
+		ip, ok := recvIP(ctx, ipCh)
+		if !ok {
+			return
+		}
+		if !acquireToken(ctx, workerTokens) {
+			return
+		}
+		success := runScan(ctx, vmRuntime, logger, ip)
+		releaseToken(workerTokens)
+		recordScanResult(domain, sni, success)
+		if !success {
+			continue
+		}
+		acceptIP(ip, limit, okMu, seen, okIPs, logger, cancel)
+	}
+}
+
+func recvIP(ctx context.Context, ipCh <-chan net.IP) (net.IP, bool) {
+	select {
+	case <-ctx.Done():
+		return nil, false
+	case ip, ok := <-ipCh:
+		if !ok {
+			return nil, false
+		}
+		return ip, true
+	}
+}
+
+func acquireToken(ctx context.Context, workerTokens chan struct{}) bool {
+	select {
+	case <-ctx.Done():
+		return false
+	case workerTokens <- struct{}{}:
+		return true
+	}
+}
+
+func releaseToken(workerTokens chan struct{}) {
+	<-workerTokens
+}
+
+func runScan(ctx context.Context, vmRuntime *vm.VM, logger *zap.Logger, ip net.IP) bool {
+	logger.Debug("testing IP",
+		zap.String("ip", ip.String()),
+	)
+	res := vmRuntime.ExecuteIP(ctx, ip)
+	if !res.Success {
+		logger.Debug("IP rejected",
+			zap.String("ip", ip.String()),
+		)
+	}
+	return res.Success
+}
+
+func acceptIP(
+	ip net.IP,
+	limit int,
+	okMu *sync.Mutex,
+	seen map[string]struct{},
+	okIPs *[]net.IP,
+	logger *zap.Logger,
+	cancel context.CancelFunc,
+) {
+	ipCopy := make(net.IP, len(ip))
+	copy(ipCopy, ip)
+
+	okMu.Lock()
+	defer okMu.Unlock()
+	if len(*okIPs) >= limit {
+		return
+	}
+	key := ipCopy.String()
+	if _, exists := seen[key]; exists {
+		return
+	}
+	seen[key] = struct{}{}
+	*okIPs = append(*okIPs, ipCopy)
+	logger.Debug("IP accepted",
+		zap.String("ip", ipCopy.String()),
+		zap.Int("accepted_count", len(*okIPs)),
+	)
+	if len(*okIPs) == limit {
+		cancel()
+	}
 }

@@ -22,12 +22,12 @@ func Serve(ctx context.Context, cfg config.Config) error {
 	defer cancel()
 	logger := log.Of(ctx)
 	handler := &dnsHandler{
-		logger: logger,
-		rwMux:  new(sync.RWMutex),
-		memory: make(map[string][]net.IP),
-		updatedAt: make(map[string]time.Time),
+		logger:      logger,
+		rwMux:       new(sync.RWMutex),
+		memory:      make(map[string][]net.IP),
+		updatedAt:   make(map[string]time.Time),
 		sniByDomain: make(map[string]string),
-		ttl:    uint32(cfg.UpdateInterval.Seconds()),
+		ttl:         uint32(cfg.UpdateInterval.Seconds()),
 	}
 	for _, domainCfg := range cfg.Domains {
 		handler.sniByDomain[domainCfg.Domain] = domainCfg.SNI
@@ -67,10 +67,10 @@ func Serve(ctx context.Context, cfg config.Config) error {
 }
 
 type dnsHandler struct {
-	logger *zap.Logger
-	rwMux  *sync.RWMutex
-	memory map[string][]net.IP
-	updatedAt map[string]time.Time
+	logger      *zap.Logger
+	rwMux       *sync.RWMutex
+	memory      map[string][]net.IP
+	updatedAt   map[string]time.Time
 	sniByDomain map[string]string
 
 	ttl uint32
@@ -86,7 +86,7 @@ func (d *dnsHandler) UpdateRecords(key string, records []net.IP) {
 }
 
 type recordSnapshot struct {
-	IPs []net.IP
+	IPs       []net.IP
 	UpdatedAt time.Time
 }
 
@@ -102,7 +102,7 @@ func (d *dnsHandler) Snapshot() map[string]recordSnapshot {
 			copyRecords[i] = ipCopy
 		}
 		result[key] = recordSnapshot{
-			IPs: copyRecords,
+			IPs:       copyRecords,
 			UpdatedAt: d.updatedAt[key],
 		}
 	}
